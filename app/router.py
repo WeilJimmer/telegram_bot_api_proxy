@@ -21,6 +21,27 @@ def _is_json_content_type(content_type: str) -> bool:
     return mime_type == "application/json" or mime_type.endswith("+json")
 
 
+def _normalize_method_and_fields(
+    method: str,
+    json_body: Optional[dict[str, Any]],
+    form_fields: dict,
+    file_fields: dict,
+) -> str:
+    if method != "sendFile":
+        return method
+
+    if json_body is not None and "file" in json_body:
+        json_body.setdefault("document", json_body.pop("file"))
+
+    if "file" in form_fields:
+        form_fields.setdefault("document", form_fields.pop("file"))
+
+    if "file" in file_fields:
+        file_fields.setdefault("document", file_fields.pop("file"))
+
+    return "sendDocument"
+
+
 async def verify_api_key(key: Optional[str] = Depends(_api_key_header)) -> Optional[str]:
     """驗證代理 API Key，若 config 未設定則跳過"""
     if API_KEY and key != API_KEY:
@@ -82,6 +103,8 @@ async def proxy_telegram(
 
     except Exception as exc:
         raise HTTPException(status_code=400, detail=f"Failed to parse request body: {exc}")
+
+    method = _normalize_method_and_fields(method, json_body, form_fields, file_fields)
 
     # ── Step 2：存取控制驗證 ────────────────────────────────
     if chat_id:

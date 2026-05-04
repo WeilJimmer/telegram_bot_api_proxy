@@ -38,7 +38,8 @@ Common file fields:
 Note:
 
 - The standard Telegram method for generic files is sendDocument.
-- Use sendFile only if your upstream explicitly supports it.
+- This proxy maps sendFile to sendDocument automatically.
+- This proxy also maps file to document automatically.
 
 ---
 
@@ -149,6 +150,11 @@ curl -X POST http://192.168.100.100:15820/sendLocation \
 ```
 
 ### sendFile
+
+Compatibility alias. The proxy rewrites:
+
+- sendFile -> sendDocument
+- file -> document
 
 ```bash
 curl -X POST http://192.168.100.100:15820/sendFile \
