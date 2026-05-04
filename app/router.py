@@ -1,4 +1,6 @@
-from typing import Optional
+from typing import Any, Optional
+
+import json
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -11,6 +13,12 @@ from app.validator import is_chat_id_allowed, is_method_allowed, is_global_metho
 router = APIRouter()
 
 _api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+
+
+def _is_json_content_type(content_type: str) -> bool:
+    """判斷 Content-Type 是否為 JSON（含 application/*+json）。"""
+    mime_type = content_type.split(";", 1)[0].strip().lower()
+    return mime_type == "application/json" or mime_type.endswith("+json")
 
 
 async def verify_api_key(key: Optional[str] = Depends(_api_key_header)) -> Optional[str]:
@@ -27,17 +35,27 @@ async def proxy_telegram(
     _: Optional[str] = Depends(verify_api_key),
 ):
     content_type = request.headers.get("content-type", "")
+    is_json_request = _is_json_content_type(content_type)
 
     # ── Step 1：解析 Request Body ──────────────────────────
-    json_body:   Optional[dict] = None
+    json_body:   Optional[dict[str, Any]] = None
     form_fields: dict = {}
     file_fields: dict = {}
     raw_body:    Optional[bytes] = None
     chat_id:     Optional[str] = None
 
     try:
-        if "application/json" in content_type:
-            json_body  = await request.json()
+        if is_json_request:
+            raw_payload = await request.body()
+            try:
+                parsed = json.loads(raw_payload.decode("utf-8"))
+            except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+                raise HTTPException(status_code=400, detail=f"JSON 解碼失敗: {exc}")
+
+            if not isinstance(parsed, dict):
+                raise HTTPException(status_code=400, detail="JSON 內容必須是物件，例如 {\"chat_id\":\"123\",\"text\":\"hi\"}")
+
+            json_body = parsed
             raw_cid    = json_body.get("chat_id")
             chat_id    = str(raw_cid) if raw_cid is not None else None
 

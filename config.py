@@ -6,6 +6,11 @@
 BOT_TOKEN        = "your_bot_token_here"
 TELEGRAM_API_BASE = "https://api.telegram.org"
 
+# ---------- Server ----------
+# 伺服器監聽位址與埠號
+SERVER_HOST = "0.0.0.0"
+SERVER_PORT = 15820
+
 # ---------- Proxy Auth ----------
 # 調用此代理時需在 Header 帶上：X-API-Key: <API_KEY>
 # 設為 "" 或 None 可關閉驗證

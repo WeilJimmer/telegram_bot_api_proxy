@@ -25,6 +25,8 @@ pip install -r requirements.txt
 |------|------|
 | `BOT_TOKEN` | Telegram Bot Token |
 | `API_KEY` | 保護此代理的存取金鑰，空字串可關閉 |
+| `SERVER_HOST` | 伺服器綁定位址，預設 `0.0.0.0` |
+| `SERVER_PORT` | 伺服器埠號，預設 `15820` |
 | `ALLOWED_CHAT_IDS` | Chat ID 白名單，`["*"]` 允許所有 |
 | `ALLOWED_METHODS` | 各 Chat ID 的方法白名單 |
 | `GLOBAL_ALLOWED_METHODS` | 不需 chat_id 的方法白名單 |
@@ -38,7 +40,7 @@ python main.py
 或使用 uvicorn：
 
 ```bash
-uvicorn main:app --host 0.0.0.0 --port 8080
+uvicorn main:app --host 0.0.0.0 --port 15820
 ```
 
 ---
@@ -47,10 +49,16 @@ uvicorn main:app --host 0.0.0.0 --port 8080
 
 > 所有請求需帶上 `X-API-Key` Header（若 `API_KEY` 有設定）
 
+### 後端如何判斷 JSON
+
+- 當 `Content-Type` 是 `application/json` 或 `application/*+json` 時，後端會嘗試做 JSON 解碼。
+- 若解碼失敗或 JSON 不是物件（例如不是 `{}`），會回傳 `400`。
+- 檔案上傳請維持 `multipart/form-data`，不要用 JSON 送檔案內容。
+
 ### 發送訊息（JSON）
 
 ```bash
-curl -X POST http://localhost:8080/sendMessage \
+curl -X POST http://localhost:15820/sendMessage \
   -H "Content-Type: application/json" \
   -H "X-API-Key: your_proxy_api_key" \
   -d '{"chat_id": "123456789", "text": "Hello!"}'
@@ -59,7 +67,7 @@ curl -X POST http://localhost:8080/sendMessage \
 ### 發送訊息（Form-data）
 
 ```bash
-curl -X POST http://localhost:8080/sendMessage \
+curl -X POST http://localhost:15820/sendMessage \
   -H "X-API-Key: your_proxy_api_key" \
   -F "chat_id=123456789" \
   -F "text=Hello!"
@@ -68,7 +76,7 @@ curl -X POST http://localhost:8080/sendMessage \
 ### 上傳圖片
 
 ```bash
-curl -X POST http://localhost:8080/sendPhoto \
+curl -X POST http://localhost:15820/sendPhoto \
   -H "X-API-Key: your_proxy_api_key" \
   -F "chat_id=123456789" \
   -F "photo=@/path/to/image.jpg"
@@ -77,7 +85,7 @@ curl -X POST http://localhost:8080/sendPhoto \
 ### 全域方法（無 chat_id）
 
 ```bash
-curl -X POST http://localhost:8080/getMe \
+curl -X POST http://localhost:15820/getMe \
   -H "X-API-Key: your_proxy_api_key"
 ```
 
@@ -128,5 +136,5 @@ GLOBAL_ALLOWED_METHODS = []                          # 全部禁止
 伺服器啟動後可訪問 Swagger UI：
 
 ```
-http://localhost:8080/docs
+http://localhost:15820/docs
 ```
