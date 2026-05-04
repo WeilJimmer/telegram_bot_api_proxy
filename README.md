@@ -67,6 +67,45 @@ Or with uvicorn:
 uvicorn main:app --host 0.0.0.0 --port 15820
 ```
 
+#### 5. Install as a Linux systemd service
+
+This installs the service, enables auto-start at boot, and starts it immediately.
+
+```bash
+chmod +x scripts/install_systemd_service.sh
+sudo ./scripts/install_systemd_service.sh
+```
+
+Useful commands:
+
+```bash
+sudo systemctl status telegram-api-proxy
+sudo systemctl restart telegram-api-proxy
+sudo journalctl -u telegram-api-proxy -f
+```
+
+Optional variables:
+
+```bash
+sudo SERVICE_NAME=telegram-api-proxy \
+SERVICE_USER=$USER \
+VENV_DIR=$(pwd)/venv \
+./scripts/install_systemd_service.sh
+```
+
+Uninstall service:
+
+```bash
+chmod +x scripts/uninstall_systemd_service.sh
+sudo ./scripts/uninstall_systemd_service.sh
+```
+
+Optional variable:
+
+```bash
+sudo SERVICE_NAME=telegram-api-proxy ./scripts/uninstall_systemd_service.sh
+```
+
 ---
 
 ### Request Examples
@@ -215,6 +254,45 @@ python main.py
 
 ```bash
 uvicorn main:app --host 0.0.0.0 --port 15820
+```
+
+#### 5. 安裝成 Linux systemd 服務
+
+此腳本會安裝服務、設定開機自動啟動，並立即啟動服務。
+
+```bash
+chmod +x scripts/install_systemd_service.sh
+sudo ./scripts/install_systemd_service.sh
+```
+
+常用指令：
+
+```bash
+sudo systemctl status telegram-api-proxy
+sudo systemctl restart telegram-api-proxy
+sudo journalctl -u telegram-api-proxy -f
+```
+
+可選參數：
+
+```bash
+sudo SERVICE_NAME=telegram-api-proxy \
+SERVICE_USER=$USER \
+VENV_DIR=$(pwd)/venv \
+./scripts/install_systemd_service.sh
+```
+
+移除服務：
+
+```bash
+chmod +x scripts/uninstall_systemd_service.sh
+sudo ./scripts/uninstall_systemd_service.sh
+```
+
+可選參數：
+
+```bash
+sudo SERVICE_NAME=telegram-api-proxy ./scripts/uninstall_systemd_service.sh
 ```
 
 ---
