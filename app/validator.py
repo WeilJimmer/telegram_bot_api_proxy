@@ -1,5 +1,5 @@
 from typing import List
-from config import ALLOWED_CHAT_IDS, ALLOWED_METHODS, GLOBAL_ALLOWED_METHODS
+from app.settings import ALLOWED_CHAT_IDS, ALLOWED_METHODS, GLOBAL_ALLOWED_METHODS
 
 
 def is_chat_id_allowed(chat_id: str) -> bool:

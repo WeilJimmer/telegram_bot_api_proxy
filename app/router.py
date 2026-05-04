@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 from fastapi.security import APIKeyHeader
 
-from config import API_KEY, BOT_TOKEN, TELEGRAM_API_BASE
+from app.settings import API_KEY, BOT_TOKEN, TELEGRAM_API_BASE
 from app.validator import is_chat_id_allowed, is_method_allowed, is_global_method_allowed
 
 router = APIRouter()

@@ -1,7 +1,7 @@
 import uvicorn
 from fastapi import FastAPI
 from app.router import router
-from config import SERVER_HOST, SERVER_PORT
+from app.settings import SERVER_HOST, SERVER_PORT
 
 app = FastAPI(
     title="Telegram Bot API Proxy",

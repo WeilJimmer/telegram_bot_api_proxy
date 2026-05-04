@@ -19,7 +19,18 @@ source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 3. 設定 `config.py`
+### 3. 設定環境變數（`.env` / `.env.sample`）
+
+- 服務啟動時會**優先讀取 `.env`**。
+- 若 `.env` 不存在，則會改讀 `.env.sample`。
+
+建議先複製範本：
+
+```bash
+cp .env.sample .env
+# Windows PowerShell
+# Copy-Item .env.sample .env
+```
 
 | 欄位 | 說明 |
 |------|------|
@@ -30,6 +41,8 @@ pip install -r requirements.txt
 | `ALLOWED_CHAT_IDS` | Chat ID 白名單，`["*"]` 允許所有 |
 | `ALLOWED_METHODS` | 各 Chat ID 的方法白名單 |
 | `GLOBAL_ALLOWED_METHODS` | 不需 chat_id 的方法白名單 |
+
+> `ALLOWED_CHAT_IDS`、`ALLOWED_METHODS`、`GLOBAL_ALLOWED_METHODS` 需使用 JSON 字串格式。
 
 ### 4. 啟動
 
@@ -95,38 +108,32 @@ curl -X POST http://localhost:15820/getMe \
 
 ### ALLOWED_CHAT_IDS
 
-```python
-ALLOWED_CHAT_IDS = ["*"]             # 允許所有 chat_id
-ALLOWED_CHAT_IDS = [123456, 789012]  # 僅允許清單內的 chat_id
+```dotenv
+ALLOWED_CHAT_IDS=["*"]             # 允許所有 chat_id
+ALLOWED_CHAT_IDS=[123456,789012]    # 僅允許清單內的 chat_id
 ```
 
 ### ALLOWED_METHODS
 
 優先順序：**明確指定的 chat_id 規則 > 萬用字元 `"*"` 規則**
 
-```python
+```dotenv
 # 所有人可用所有方法
-ALLOWED_METHODS = {"*": ["*"]}
+ALLOWED_METHODS={"*":["*"]}
 
-# 預設只能 sendMessage，但 123456 不受限
-ALLOWED_METHODS = {
-    "*":          ["sendMessage"],
-    "123456789":  ["*"],
-}
+# 預設只能 sendMessage，但 123456789 不受限
+ALLOWED_METHODS={"*":["sendMessage"],"123456789":["*"]}
 
 # 各 chat_id 限制不同方法
-ALLOWED_METHODS = {
-    "123456789": ["sendMessage", "sendPhoto"],
-    "987654321": ["sendMessage"],
-}
+ALLOWED_METHODS={"123456789":["sendMessage","sendPhoto"],"987654321":["sendMessage"]}
 ```
 
 ### GLOBAL_ALLOWED_METHODS
 
-```python
-GLOBAL_ALLOWED_METHODS = ["*"]                      # 允許所有全域方法
-GLOBAL_ALLOWED_METHODS = ["getMe", "getWebhookInfo"] # 僅允許指定方法
-GLOBAL_ALLOWED_METHODS = []                          # 全部禁止
+```dotenv
+GLOBAL_ALLOWED_METHODS=["*"]                        # 允許所有全域方法
+GLOBAL_ALLOWED_METHODS=["getMe","getWebhookInfo"] # 僅允許指定方法
+GLOBAL_ALLOWED_METHODS=[]                            # 全部禁止
 ```
 
 ---
