@@ -28,7 +28,7 @@ async def verify_api_key(key: Optional[str] = Depends(_api_key_header)) -> Optio
     return key
 
 
-@router.post("/{method}", summary="代理 Telegram Bot API")
+@router.post("/{method}", summary="Proxy Telegram Bot API")
 async def proxy_telegram(
     method: str,
     request: Request,
@@ -50,10 +50,10 @@ async def proxy_telegram(
             try:
                 parsed = json.loads(raw_payload.decode("utf-8"))
             except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-                raise HTTPException(status_code=400, detail=f"JSON 解碼失敗: {exc}")
+                raise HTTPException(status_code=400, detail=f"Failed to decode JSON payload: {exc}")
 
             if not isinstance(parsed, dict):
-                raise HTTPException(status_code=400, detail="JSON 內容必須是物件，例如 {\"chat_id\":\"123\",\"text\":\"hi\"}")
+                raise HTTPException(status_code=400, detail="JSON body must be an object, for example {\"chat_id\":\"123\",\"text\":\"hi\"}")
 
             json_body = parsed
             raw_cid    = json_body.get("chat_id")
@@ -81,25 +81,25 @@ async def proxy_telegram(
             raw_body = await request.body()
 
     except Exception as exc:
-        raise HTTPException(status_code=400, detail=f"請求解析失敗: {exc}")
+        raise HTTPException(status_code=400, detail=f"Failed to parse request body: {exc}")
 
     # ── Step 2：存取控制驗證 ────────────────────────────────
     if chat_id:
         if not is_chat_id_allowed(chat_id):
             raise HTTPException(
                 status_code=403,
-                detail=f"chat_id {chat_id} 不在允許清單中",
+                detail=f"chat_id {chat_id} is not in the allowlist",
             )
         if not is_method_allowed(chat_id, method):
             raise HTTPException(
                 status_code=403,
-                detail=f"chat_id {chat_id} 不允許使用方法 '{method}'",
+                detail=f"chat_id {chat_id} is not allowed to use method '{method}'",
             )
     else:
         if not is_global_method_allowed(method):
             raise HTTPException(
                 status_code=403,
-                detail=f"方法 '{method}' 不在全域允許清單，或此方法需要 chat_id",
+                detail=f"method '{method}' is not in the global allowlist, or this method requires chat_id",
             )
 
     # ── Step 3：轉發至 Telegram API ─────────────────────────
@@ -128,6 +128,6 @@ async def proxy_telegram(
         return JSONResponse(content=resp.json(), status_code=resp.status_code)
 
     except httpx.RequestError as exc:
-        raise HTTPException(status_code=502, detail=f"上游請求失敗: {exc}")
+        raise HTTPException(status_code=502, detail=f"Upstream request failed: {exc}")
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"伺服器內部錯誤: {exc}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {exc}")

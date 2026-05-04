@@ -5,7 +5,7 @@ from app.settings import SERVER_HOST, SERVER_PORT
 
 app = FastAPI(
     title="Telegram Bot API Proxy",
-    description="隱藏 Bot Token 的 Telegram Bot API 代理伺服器",
+    description="A Telegram Bot API proxy server that hides bot tokens and supports access control.",
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",

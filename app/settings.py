@@ -22,7 +22,7 @@ def _parse_json_env(name: str, default: Any) -> Any:
     try:
         return json.loads(raw)
     except json.JSONDecodeError as exc:
-        raise ValueError(f"環境變數 {name} 不是合法 JSON: {exc}") from exc
+        raise ValueError(f"Environment variable {name} is not valid JSON: {exc}") from exc
 
 
 def _parse_int_env(name: str, default: int) -> int:
@@ -32,7 +32,7 @@ def _parse_int_env(name: str, default: int) -> int:
     try:
         return int(raw)
     except ValueError as exc:
-        raise ValueError(f"環境變數 {name} 必須是整數") from exc
+        raise ValueError(f"Environment variable {name} must be an integer") from exc
 
 
 BOT_TOKEN = os.getenv("BOT_TOKEN", "your_bot_token_here")
@@ -48,10 +48,10 @@ ALLOWED_METHODS = _parse_json_env("ALLOWED_METHODS", {"*": ["*"]})
 GLOBAL_ALLOWED_METHODS = _parse_json_env("GLOBAL_ALLOWED_METHODS", ["getMe"])
 
 if not isinstance(ALLOWED_CHAT_IDS, list):
-    raise ValueError("環境變數 ALLOWED_CHAT_IDS 必須是 JSON 陣列")
+    raise ValueError("Environment variable ALLOWED_CHAT_IDS must be a JSON array")
 
 if not isinstance(ALLOWED_METHODS, dict):
-    raise ValueError("環境變數 ALLOWED_METHODS 必須是 JSON 物件")
+    raise ValueError("Environment variable ALLOWED_METHODS must be a JSON object")
 
 if not isinstance(GLOBAL_ALLOWED_METHODS, list):
-    raise ValueError("環境變數 GLOBAL_ALLOWED_METHODS 必須是 JSON 陣列")
+    raise ValueError("Environment variable GLOBAL_ALLOWED_METHODS must be a JSON array")
