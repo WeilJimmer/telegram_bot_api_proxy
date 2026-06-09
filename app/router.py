@@ -9,7 +9,11 @@ from fastapi.security import APIKeyHeader
 
 from app.settings import API_KEY, BOT_TOKEN, TELEGRAM_API_BASE
 from app.validator import is_chat_id_allowed, is_method_allowed, is_global_method_allowed
-from app.custom_methods import handle_report_to_master
+from app.custom_methods import (
+    handle_ask_master_for_permission,
+    handle_get_result_from_master,
+    handle_report_to_master,
+)
 
 router = APIRouter()
 
@@ -104,6 +108,73 @@ async def _parse_request_body(
         raise HTTPException(status_code=400, detail=f"Failed to parse request body: {exc}")
 
     return json_body, form_fields, file_fields, raw_body, chat_id
+
+
+@router.post("/askMasterForPermission", summary="Send a poll to master and return a poll token (non-official)")
+async def ask_master_for_permission(
+    request: Request,
+    _: Optional[str] = Depends(verify_api_key),
+):
+    """Ask the master for permission via a Telegram poll.
+
+    Accepts JSON or multipart/form-data. Special fields (stripped before forwarding):
+    - question (str, required): Poll question text, max 300 chars.
+    - options (JSON array | str, required): 2–10 option strings, max 100 chars each.
+
+    Any media fields (photo/video/audio/document/file/animation/voice/video_note/sticker
+    or latitude+longitude) are sent as a separate message to master BEFORE the poll.
+
+    Returns poll_token to be used later with getResultFromMaster.
+    """
+    content_type = request.headers.get("content-type", "")
+    json_body, form_fields, file_fields, _, _ = await _parse_request_body(request)
+
+    # Extract question and options; leave only media fields in the body dicts.
+    if json_body is not None:
+        question = json_body.pop("question", "")
+        raw_options = json_body.pop("options", [])
+    else:
+        question = str(form_fields.pop("question", ""))
+        raw_options = form_fields.pop("options", "[]")
+
+    if isinstance(raw_options, str):
+        try:
+            options = json.loads(raw_options)
+        except json.JSONDecodeError as exc:
+            raise HTTPException(status_code=400, detail=f"options must be a JSON array: {exc}")
+    else:
+        options = raw_options
+
+    if not isinstance(options, list) or not all(isinstance(o, str) for o in options):
+        raise HTTPException(status_code=400, detail="options must be a JSON array of strings")
+
+    result = await handle_ask_master_for_permission(
+        question, options, json_body, form_fields, file_fields, content_type
+    )
+    return JSONResponse(content=result)
+
+
+@router.post("/getResultFromMaster", summary="Stop a master poll and retrieve results (non-official)")
+async def get_result_from_master(
+    request: Request,
+    _: Optional[str] = Depends(verify_api_key),
+):
+    """Stop the Telegram poll identified by poll_token and return the vote results.
+
+    Accepts JSON or multipart/form-data with:
+    - poll_token (str, required): the token returned by askMasterForPermission.
+
+    Calls Telegram stopPoll; once stopped the poll cannot be stopped again.
+    """
+    json_body, form_fields, _, _, _ = await _parse_request_body(request)
+
+    if json_body is not None:
+        poll_token = str(json_body.get("poll_token", ""))
+    else:
+        poll_token = str(form_fields.get("poll_token", ""))
+
+    result, status_code = await handle_get_result_from_master(poll_token)
+    return JSONResponse(content=result, status_code=status_code)
 
 
 @router.post("/reportToMaster", summary="Report to master (non-official)")
