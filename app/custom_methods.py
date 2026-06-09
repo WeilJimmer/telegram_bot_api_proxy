@@ -151,8 +151,8 @@ async def handle_ask_master_for_permission(
 
     if not options or len(options) < 2:
         raise HTTPException(status_code=400, detail="at least 2 options are required")
-    if len(options) > 10:
-        raise HTTPException(status_code=400, detail="at most 10 options are allowed (Telegram limit)")
+    if len(options) > 9:
+        raise HTTPException(status_code=400, detail="at most 9 options are allowed (the master may add more, up to Telegram's limit of 10)")
     for opt in options:
         if not opt or not opt.strip():
             raise HTTPException(status_code=400, detail="option text must not be empty")
@@ -175,6 +175,7 @@ async def handle_ask_master_for_permission(
         "type": "regular",
         "is_anonymous": False,
         "allows_multiple_answers": True,
+        "allow_adding_options": True,
     }
 
     poll_resp, _ = await _send_to_telegram("sendPoll", poll_payload, {}, {})

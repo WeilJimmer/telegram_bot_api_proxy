@@ -181,7 +181,7 @@ curl -X POST http://localhost:15820/reportToMaster \
 
 #### askMasterForPermission
 
-Send a poll to the master and get back a `poll_token`. The poll is non-anonymous, allows multiple answers, allows re-voting, and has no time limit. `options` must be a JSON array of 2-10 strings. If you also send media, it is delivered as a separate message before the poll.
+Send a poll to the master and get back a `poll_token`. The poll is non-anonymous, allows multiple answers, allows re-voting, and has no time limit. The master can also add their own options, so the question can be open-ended. `options` must be a JSON array of 2-9 strings (one slot is reserved for options the master adds, up to Telegram's limit of 10). If you also send media, it is delivered as a separate message before the poll.
 
 ```bash
 curl -X POST http://localhost:15820/askMasterForPermission \
@@ -423,7 +423,7 @@ curl -X POST http://localhost:15820/reportToMaster \
 
 #### askMasterForPermission
 
-向主人發送投票並取回 `poll_token`。投票為非匿名、可複選、可重新投票、無時間限制。`options` 須為 2~10 個字串的 JSON 陣列。若同時帶媒體，會在投票前先以獨立訊息送出。
+向主人發送投票並取回 `poll_token`。投票為非匿名、可複選、可重新投票、無時間限制。主人還能自行新增選項，所以問題可以開放、靈活。`options` 須為 2~9 個字串的 JSON 陣列（保留一個名額給主人新增的選項，Telegram 上限為 10）。若同時帶媒體，會在投票前先以獨立訊息送出。
 
 ```bash
 curl -X POST http://localhost:15820/askMasterForPermission \

@@ -201,7 +201,7 @@ curl -X POST http://192.168.100.100:15820/reportToMaster \
 
 ### askMasterForPermission
 
-Ask the master a yes/no style question as a poll. You get back a poll_token. options is a JSON array of 2 to 10 short strings.
+Ask the master a question as a poll. You get back a poll_token. options is a JSON array of 2 to 9 short strings. The master can also add their own options, so your question can be open-ended (not only yes/no).
 
 ```bash
 curl -X POST http://192.168.100.100:15820/askMasterForPermission \
