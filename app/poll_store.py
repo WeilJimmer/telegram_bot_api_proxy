@@ -45,3 +45,10 @@ def load_poll(poll_token: str) -> Optional[dict[str, Any]]:
     if not path.exists():
         return None
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def delete_poll(poll_token: str) -> None:
+    if _redis_client:
+        _redis_client.delete(f"tg_poll:{poll_token}")
+        return
+    Path(POLL_STORE_DIR).joinpath(f"{poll_token}.json").unlink(missing_ok=True)
