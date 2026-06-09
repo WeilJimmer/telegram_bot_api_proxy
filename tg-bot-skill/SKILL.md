@@ -231,13 +231,17 @@ curl -X POST http://192.168.100.100:15820/getResultFromMaster \
 	-d '{"poll_token":"abc-123"}'
 ```
 
-The answer is inside telegram_result.result.options, where each option has a voter_count.
+Read these fields in the response (the raw poll is also kept in telegram_result):
+
+- message: a plain sentence you can use directly. Examples: "Master chose [Yes] option." or "Master hasn't answered yet! Ask again?"
+- answered: true if the master voted, false if not.
+- chosen_options: the options the master picked (a list, may have more than one).
 
 Pitfalls:
 
 - The master is a human. They need time to see the poll and tap an option. Do NOT call getResultFromMaster right after asking. Wait first (for example tens of seconds to minutes).
-- If every voter_count is 0, the master has NOT answered yet. Because getResultFromMaster already closed that poll, the old poll is dead.
-- When you get an all-zero result, usually you should ask AGAIN: call askMasterForPermission to make a fresh poll, wait longer, then read it once more.
+- If answered is false (all votes are 0), the master has NOT answered yet. Because getResultFromMaster already closed that poll, the old poll is dead.
+- When answered is false, usually you should ask AGAIN: call askMasterForPermission to make a fresh poll, wait longer, then read it once more.
 
 ---
 

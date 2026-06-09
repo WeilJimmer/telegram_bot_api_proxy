@@ -203,6 +203,22 @@ curl -X POST http://localhost:15820/getResultFromMaster \
   -d '{"poll_token": "uuid..."}'
 ```
 
+The response parses the vote into easy-to-read fields (the raw Telegram payload is kept in `telegram_result`):
+
+```json
+{
+  "ok": true,
+  "answered": true,
+  "chosen_options": ["Allow"],
+  "message": "Master chose [Allow] option.",
+  "telegram_result": { "...": "raw stopPoll response" }
+}
+```
+
+- `answered`: `false` when no one has voted yet.
+- `chosen_options`: the option texts the master picked (can be several).
+- `message`: a ready-to-use sentence; if unanswered it is `"Master hasn't answered yet! Ask again?"`.
+
 > **Pitfall:** The master is a human and needs time to answer. Do not call this immediately after asking. If all `voter_count` values are 0, the master had not answered yet, and the poll is now closed — usually you should call askMasterForPermission again to send a fresh poll and wait longer before reading the result.
 
 ---
@@ -444,6 +460,22 @@ curl -X POST http://localhost:15820/getResultFromMaster \
   -H "X-API-Key: your_proxy_api_key" \
   -d '{"poll_token": "uuid..."}'
 ```
+
+回應會把投票解析成易讀欄位（原始 Telegram 內容仍保留在 `telegram_result`）：
+
+```json
+{
+  "ok": true,
+  "answered": true,
+  "chosen_options": ["給"],
+  "message": "Master chose [給] option.",
+  "telegram_result": { "...": "原始 stopPoll 回應" }
+}
+```
+
+- `answered`：尚無人投票時為 `false`。
+- `chosen_options`：主人選擇的選項文字（可能多個）。
+- `message`：可直接使用的句子；未回答時為 `"Master hasn't answered yet! Ask again?"`。
 
 > **常見陷阱：** 主人是真人，需要時間回覆。不要一問完就馬上呼叫此方法。若所有 `voter_count` 都是 0，代表主人還沒回答，而投票此時已被關閉 — 通常你應該再次呼叫 askMasterForPermission 發出新投票，並等久一點再讀取結果。
 

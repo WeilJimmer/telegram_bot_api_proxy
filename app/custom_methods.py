@@ -206,6 +206,24 @@ async def handle_ask_master_for_permission(
 
 # ── getResultFromMaster ─────────────────────────────────────────────────────────
 
+def _summarize_poll_result(stop_poll_resp: dict) -> tuple[bool, list[str], str]:
+    """Turn a stopPoll response into (answered, chosen_options, human_message)."""
+    poll = stop_poll_resp.get("result") or {}
+    options = poll.get("options") or []
+
+    chosen = [opt.get("text", "") for opt in options if opt.get("voter_count", 0) > 0]
+
+    if not chosen:
+        return False, [], "Master hasn't answered yet! Ask again?"
+
+    if len(chosen) == 1:
+        return True, chosen, f"Master chose [{chosen[0]}] option."
+
+    joined = ", ".join(f"[{text}]" for text in chosen)
+    return True, chosen, f"Master chose {joined} options."
+
+
+
 async def handle_get_result_from_master(poll_token: str) -> tuple[Any, int]:
     if not poll_token or not poll_token.strip():
         raise HTTPException(status_code=400, detail="poll_token is required")
@@ -226,14 +244,30 @@ async def handle_get_result_from_master(poll_token: str) -> tuple[Any, int]:
     )
 
     succeeded = bool(stop_poll_resp.get("ok"))
-    if succeeded:
-        # Poll is now in a terminal state and cannot be stopped again; drop the token.
-        delete_poll(poll_token)
+    if not succeeded:
+        return {
+            "ok": False,
+            "poll_token": poll_token,
+            "question": poll_data["question"],
+            "options": poll_data["options"],
+            "answered": False,
+            "chosen_options": [],
+            "message": f"Failed to read the poll: {stop_poll_resp.get('description', stop_poll_resp)}",
+            "telegram_result": stop_poll_resp,
+        }, 502
+
+    # Poll is now in a terminal state and cannot be stopped again; drop the token.
+    delete_poll(poll_token)
+
+    answered, chosen_options, message = _summarize_poll_result(stop_poll_resp)
 
     return {
-        "ok": succeeded,
+        "ok": True,
         "poll_token": poll_token,
         "question": poll_data["question"],
         "options": poll_data["options"],
+        "answered": answered,
+        "chosen_options": chosen_options,
+        "message": message,
         "telegram_result": stop_poll_resp,
-    }, (200 if succeeded else 502)
+    }, 200
