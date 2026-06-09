@@ -220,7 +220,9 @@ Save the poll_token. You need it to read the answer.
 
 ### getResultFromMaster
 
-Read the poll answer. Use the poll_token from askMasterForPermission. Call this only once per token.
+Read the poll answer. Use the poll_token from askMasterForPermission.
+
+IMPORTANT: this CLOSES the poll. The master can no longer vote after you call it. You can only call it ONCE per token. So call it only when you actually need the final answer.
 
 ```bash
 curl -X POST http://192.168.100.100:15820/getResultFromMaster \
@@ -230,6 +232,12 @@ curl -X POST http://192.168.100.100:15820/getResultFromMaster \
 ```
 
 The answer is inside telegram_result.result.options, where each option has a voter_count.
+
+Pitfalls:
+
+- The master is a human. They need time to see the poll and tap an option. Do NOT call getResultFromMaster right after asking. Wait first (for example tens of seconds to minutes).
+- If every voter_count is 0, the master has NOT answered yet. Because getResultFromMaster already closed that poll, the old poll is dead.
+- When you get an all-zero result, usually you should ask AGAIN: call askMasterForPermission to make a fresh poll, wait longer, then read it once more.
 
 ---
 

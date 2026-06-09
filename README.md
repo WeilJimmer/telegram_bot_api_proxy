@@ -194,7 +194,7 @@ curl -X POST http://localhost:15820/askMasterForPermission \
 
 #### getResultFromMaster
 
-Stop the poll and return the vote counts. Use the `poll_token` from askMasterForPermission. Each token works only once (the poll cannot be stopped twice).
+Stop the poll and return the vote counts. Use the `poll_token` from askMasterForPermission. Calling this **closes the poll** (the master can no longer vote), and each token works only once.
 
 ```bash
 curl -X POST http://localhost:15820/getResultFromMaster \
@@ -202,6 +202,8 @@ curl -X POST http://localhost:15820/getResultFromMaster \
   -H "X-API-Key: your_proxy_api_key" \
   -d '{"poll_token": "uuid..."}'
 ```
+
+> **Pitfall:** The master is a human and needs time to answer. Do not call this immediately after asking. If all `voter_count` values are 0, the master had not answered yet, and the poll is now closed — usually you should call askMasterForPermission again to send a fresh poll and wait longer before reading the result.
 
 ---
 
@@ -434,7 +436,7 @@ curl -X POST http://localhost:15820/askMasterForPermission \
 
 #### getResultFromMaster
 
-停止投票並回傳各選項票數。使用 askMasterForPermission 拿到的 `poll_token`。每個 token 只能用一次（投票無法被停止兩次）。
+停止投票並回傳各選項票數。使用 askMasterForPermission 拿到的 `poll_token`。呼叫此方法會**關閉投票**（主人之後就無法再投），且每個 token 只能用一次。
 
 ```bash
 curl -X POST http://localhost:15820/getResultFromMaster \
@@ -442,6 +444,8 @@ curl -X POST http://localhost:15820/getResultFromMaster \
   -H "X-API-Key: your_proxy_api_key" \
   -d '{"poll_token": "uuid..."}'
 ```
+
+> **常見陷阱：** 主人是真人，需要時間回覆。不要一問完就馬上呼叫此方法。若所有 `voter_count` 都是 0，代表主人還沒回答，而投票此時已被關閉 — 通常你應該再次呼叫 askMasterForPermission 發出新投票，並等久一點再讀取結果。
 
 ---
 
