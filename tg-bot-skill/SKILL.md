@@ -31,6 +31,7 @@ JSON content type:
 Common file fields:
 
 - sendPhoto -> photo
+- sendVideo -> video
 - sendDocument -> document
 - sendAudio -> audio
 - sendVoice -> voice
@@ -110,6 +111,16 @@ curl -X POST http://192.168.100.100:15820/sendPhoto \
 	-F "parse_mode=HTML"
 ```
 
+### sendVideo
+
+```bash
+curl -X POST http://192.168.100.100:15820/sendVideo \
+	-H "X-API-Key: proxy_api_key" \
+	-F "chat_id=123456789" \
+	-F "video=@/path/to/clip.mp4" \
+	-F "caption=This is a video"
+```
+
 ### sendDocument
 
 ```bash
@@ -163,6 +174,62 @@ curl -X POST http://192.168.100.100:15820/sendFile \
 	-F "file=@/path/to/archive.zip" \
 	-F "caption=Archive file"
 ```
+
+---
+
+## Master Methods
+
+These methods always send to the master. Do NOT add chat_id; the server fills it in.
+
+### reportToMaster
+
+Send an alert to the master. No reply is expected. Works with text or any file (use the same fields as sendPhoto, sendVideo, sendDocument, etc.).
+
+```bash
+# Text
+curl -X POST http://192.168.100.100:15820/reportToMaster \
+	-H "Content-Type: application/json" \
+	-H "X-API-Key: proxy_api_key" \
+	-d '{"text":"Task finished"}'
+
+# Photo
+curl -X POST http://192.168.100.100:15820/reportToMaster \
+	-H "X-API-Key: proxy_api_key" \
+	-F "photo=@/path/to/photo.jpg" \
+	-F "caption=Result"
+```
+
+### askMasterForPermission
+
+Ask the master a yes/no style question as a poll. You get back a poll_token. options is a JSON array of 2 to 10 short strings.
+
+```bash
+curl -X POST http://192.168.100.100:15820/askMasterForPermission \
+	-H "Content-Type: application/json" \
+	-H "X-API-Key: proxy_api_key" \
+	-d '{"question":"Allow this action?","options":["Yes","No"]}'
+```
+
+Response:
+
+```json
+{"ok": true, "poll_token": "abc-123", "telegram_poll_message_id": 456}
+```
+
+Save the poll_token. You need it to read the answer.
+
+### getResultFromMaster
+
+Read the poll answer. Use the poll_token from askMasterForPermission. Call this only once per token.
+
+```bash
+curl -X POST http://192.168.100.100:15820/getResultFromMaster \
+	-H "Content-Type: application/json" \
+	-H "X-API-Key: proxy_api_key" \
+	-d '{"poll_token":"abc-123"}'
+```
+
+The answer is inside telegram_result.result.options, where each option has a voter_count.
 
 ---
 

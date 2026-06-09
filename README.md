@@ -52,6 +52,9 @@ cp .env.sample .env
 | ALLOWED_CHAT_IDS | Chat ID allowlist; ["*"] allows all |
 | ALLOWED_METHODS | Method allowlist by Chat ID |
 | GLOBAL_ALLOWED_METHODS | Allowlist for methods without chat_id |
+| MASTER_CHAT_ID | Master chat ID for reportToMaster / askMasterForPermission |
+| REDIS_URL | Poll storage backend; empty uses local files |
+| POLL_STORE_DIR | Poll file directory when REDIS_URL is empty, default /tmp/tg_proxy_polls |
 
 ALLOWED_CHAT_IDS, ALLOWED_METHODS, and GLOBAL_ALLOWED_METHODS must be JSON strings.
 
@@ -154,6 +157,54 @@ curl -X POST http://localhost:15820/getMe \
 
 ---
 
+### Non-Official Methods
+
+These extra methods require `MASTER_CHAT_ID` to be set. They always target the master chat; any `chat_id` in the body is ignored.
+
+#### reportToMaster
+
+Send a one-way alert to the master. Accepts any content (text, photo, video, document, ...). The proxy auto-detects the Telegram method from the fields you send (`photo` -> sendPhoto, `video` -> sendVideo, `document` -> sendDocument, `latitude`+`longitude` -> sendLocation, otherwise sendMessage).
+
+```bash
+# Text alert
+curl -X POST http://localhost:15820/reportToMaster \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your_proxy_api_key" \
+  -d '{"text": "Disk space is low"}'
+
+# Photo alert
+curl -X POST http://localhost:15820/reportToMaster \
+  -H "X-API-Key: your_proxy_api_key" \
+  -F "photo=@/path/to/snapshot.jpg" \
+  -F "caption=Camera snapshot"
+```
+
+#### askMasterForPermission
+
+Send a poll to the master and get back a `poll_token`. The poll is non-anonymous, allows multiple answers, allows re-voting, and has no time limit. `options` must be a JSON array of 2-10 strings. If you also send media, it is delivered as a separate message before the poll.
+
+```bash
+curl -X POST http://localhost:15820/askMasterForPermission \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your_proxy_api_key" \
+  -d '{"question": "A stranger wants the WiFi password. Allow?", "options": ["Allow", "Deny"]}'
+
+# Response: {"ok": true, "poll_token": "uuid...", "telegram_poll_message_id": 123}
+```
+
+#### getResultFromMaster
+
+Stop the poll and return the vote counts. Use the `poll_token` from askMasterForPermission. Each token works only once (the poll cannot be stopped twice).
+
+```bash
+curl -X POST http://localhost:15820/getResultFromMaster \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your_proxy_api_key" \
+  -d '{"poll_token": "uuid..."}'
+```
+
+---
+
 ### Access Control Settings
 
 #### ALLOWED_CHAT_IDS
@@ -241,6 +292,9 @@ cp .env.sample .env
 | ALLOWED_CHAT_IDS | Chat ID 白名單，["*"] 允許所有 |
 | ALLOWED_METHODS | 各 Chat ID 的方法白名單 |
 | GLOBAL_ALLOWED_METHODS | 不需 chat_id 的方法白名單 |
+| MASTER_CHAT_ID | reportToMaster / askMasterForPermission 使用的主人 chat ID |
+| REDIS_URL | 投票暫存後端，留空則使用本機檔案 |
+| POLL_STORE_DIR | REDIS_URL 留空時的投票檔案目錄，預設 /tmp/tg_proxy_polls |
 
 ALLOWED_CHAT_IDS、ALLOWED_METHODS、GLOBAL_ALLOWED_METHODS 需使用 JSON 字串格式。
 
@@ -339,6 +393,54 @@ curl -X POST http://localhost:15820/sendPhoto \
 ```bash
 curl -X POST http://localhost:15820/getMe \
   -H "X-API-Key: your_proxy_api_key"
+```
+
+---
+
+### 非官方方法
+
+以下額外方法需先設定 `MASTER_CHAT_ID`。它們一律送往主人，會忽略 body 內的 `chat_id`。
+
+#### reportToMaster
+
+向主人發送單向告警，支援任意內容（文字、圖片、影片、檔案……）。後端依你帶的欄位自動判斷 Telegram 方法（`photo` -> sendPhoto、`video` -> sendVideo、`document` -> sendDocument、`latitude`+`longitude` -> sendLocation，其餘 -> sendMessage）。
+
+```bash
+# 文字告警
+curl -X POST http://localhost:15820/reportToMaster \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your_proxy_api_key" \
+  -d '{"text": "磁碟空間不足"}'
+
+# 圖片告警
+curl -X POST http://localhost:15820/reportToMaster \
+  -H "X-API-Key: your_proxy_api_key" \
+  -F "photo=@/path/to/snapshot.jpg" \
+  -F "caption=監視器截圖"
+```
+
+#### askMasterForPermission
+
+向主人發送投票並取回 `poll_token`。投票為非匿名、可複選、可重新投票、無時間限制。`options` 須為 2~10 個字串的 JSON 陣列。若同時帶媒體，會在投票前先以獨立訊息送出。
+
+```bash
+curl -X POST http://localhost:15820/askMasterForPermission \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your_proxy_api_key" \
+  -d '{"question": "陌生人想要 WiFi 密碼，要給嗎？", "options": ["給", "不給"]}'
+
+# 回應：{"ok": true, "poll_token": "uuid...", "telegram_poll_message_id": 123}
+```
+
+#### getResultFromMaster
+
+停止投票並回傳各選項票數。使用 askMasterForPermission 拿到的 `poll_token`。每個 token 只能用一次（投票無法被停止兩次）。
+
+```bash
+curl -X POST http://localhost:15820/getResultFromMaster \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your_proxy_api_key" \
+  -d '{"poll_token": "uuid..."}'
 ```
 
 ---
