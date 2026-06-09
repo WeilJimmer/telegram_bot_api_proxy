@@ -9,6 +9,7 @@ from fastapi.security import APIKeyHeader
 
 from app.settings import API_KEY, BOT_TOKEN, TELEGRAM_API_BASE
 from app.validator import is_chat_id_allowed, is_method_allowed, is_global_method_allowed
+from app.custom_methods import handle_report_to_master
 
 router = APIRouter()
 
@@ -16,7 +17,6 @@ _api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
 
 def _is_json_content_type(content_type: str) -> bool:
-    """判斷 Content-Type 是否為 JSON（含 application/*+json）。"""
     mime_type = content_type.split(";", 1)[0].strip().lower()
     return mime_type == "application/json" or mime_type.endswith("+json")
 
@@ -49,16 +49,13 @@ async def verify_api_key(key: Optional[str] = Depends(_api_key_header)) -> Optio
     return key
 
 
-@router.post("/{method}", summary="Proxy Telegram Bot API")
-async def proxy_telegram(
-    method: str,
+async def _parse_request_body(
     request: Request,
-    _: Optional[str] = Depends(verify_api_key),
-):
+) -> tuple[Optional[dict[str, Any]], dict, dict, Optional[bytes], Optional[str]]:
+    """Parse request body into (json_body, form_fields, file_fields, raw_body, chat_id)."""
     content_type = request.headers.get("content-type", "")
     is_json_request = _is_json_content_type(content_type)
 
-    # ── Step 1：解析 Request Body ──────────────────────────
     json_body:   Optional[dict[str, Any]] = None
     form_fields: dict = {}
     file_fields: dict = {}
@@ -77,8 +74,8 @@ async def proxy_telegram(
                 raise HTTPException(status_code=400, detail="JSON body must be an object, for example {\"chat_id\":\"123\",\"text\":\"hi\"}")
 
             json_body = parsed
-            raw_cid    = json_body.get("chat_id")
-            chat_id    = str(raw_cid) if raw_cid is not None else None
+            raw_cid   = json_body.get("chat_id")
+            chat_id   = str(raw_cid) if raw_cid is not None else None
 
         elif (
             "multipart/form-data" in content_type
@@ -89,7 +86,7 @@ async def proxy_telegram(
             chat_id = str(raw_cid) if raw_cid else None
 
             for key, value in form.items():
-                if hasattr(value, "read"):                        # UploadFile
+                if hasattr(value, "read"):
                     file_fields[key] = (
                         value.filename,
                         await value.read(),
@@ -101,8 +98,42 @@ async def proxy_telegram(
         else:
             raw_body = await request.body()
 
+    except HTTPException:
+        raise
     except Exception as exc:
         raise HTTPException(status_code=400, detail=f"Failed to parse request body: {exc}")
+
+    return json_body, form_fields, file_fields, raw_body, chat_id
+
+
+@router.post("/reportToMaster", summary="Report to master (non-official)")
+async def report_to_master(
+    request: Request,
+    _: Optional[str] = Depends(verify_api_key),
+):
+    """Send any supported content to the configured MASTER_CHAT_ID.
+
+    The Telegram method is auto-detected from the payload fields
+    (photo/video/audio/animation/voice/video_note/sticker/document/file/location → text fallback).
+    The chat_id in the payload is ignored; MASTER_CHAT_ID from server config is always used.
+    """
+    content_type = request.headers.get("content-type", "")
+    json_body, form_fields, file_fields, raw_body, _ = await _parse_request_body(request)
+
+    result, status_code = await handle_report_to_master(
+        json_body, form_fields, file_fields, raw_body, content_type
+    )
+    return JSONResponse(content=result, status_code=status_code)
+
+
+@router.post("/{method}", summary="Proxy Telegram Bot API")
+async def proxy_telegram(
+    method: str,
+    request: Request,
+    _: Optional[str] = Depends(verify_api_key),
+):
+    content_type = request.headers.get("content-type", "")
+    json_body, form_fields, file_fields, raw_body, chat_id = await _parse_request_body(request)
 
     method = _normalize_method_and_fields(method, json_body, form_fields, file_fields)
 

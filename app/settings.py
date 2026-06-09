@@ -37,6 +37,7 @@ def _parse_int_env(name: str, default: int) -> int:
 
 BOT_TOKEN = os.getenv("BOT_TOKEN", "your_bot_token_here")
 TELEGRAM_API_BASE = os.getenv("TELEGRAM_API_BASE", "https://api.telegram.org")
+MASTER_CHAT_ID = os.getenv("MASTER_CHAT_ID", "")
 
 API_KEY = os.getenv("API_KEY", "your_proxy_api_key_here")
 
