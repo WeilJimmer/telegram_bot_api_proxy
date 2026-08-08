@@ -9,7 +9,7 @@ from fastapi.security import APIKeyHeader
 
 from app.settings import API_KEY, TELEGRAM_API_BASE
 from app.bot_profiles import (
-    BOT_PROFILE_FIELD,
+    BOT_PROFILE_HEADER,
     assert_bot_profile_name_is_supplied,
     get_bot_token_by_profile_name,
 )
@@ -68,35 +68,18 @@ async def verify_api_key(key: Optional[str] = Depends(_api_key_header)) -> Optio
     return key
 
 
-def _pop_bot_profile_name(
-    json_body: Optional[dict[str, Any]],
-    form_fields: dict,
-    file_fields: dict,
-) -> Optional[str]:
+def _get_bot_profile_name_from_header(request: Request) -> Optional[str]:
     """
     Args:
-        json_body: 解析後的 JSON body, example: {"chat_id": "1", "my_name": "ariel"}；非 JSON 請求為 None
-        form_fields: 表單的非檔案欄位, example: {"my_name": "ariel"}
-        file_fields: 表單的檔案欄位, example: {"photo": ("a.jpg", b"...", "image/jpeg")}
+        request: 進來的 FastAPI Request, example: POST /sendMessage (header X-MY-NAME: ariel)
     Return:
-        Optional[str]  取出並移除的 profile name；呼叫端沒帶時為 None
-        my_name 被當成檔案上傳 -> HTTPException 400
+        Optional[str]  從 X-MY-NAME header 讀到的 profile name；呼叫端沒帶時為 None
+        header 存在但值為空字串 -> 回傳空字串，之後會被當成未知名字拒絕（403）
     """
-    if BOT_PROFILE_FIELD in file_fields:
-        file_fields.pop(BOT_PROFILE_FIELD)
-        raise HTTPException(
-            status_code=400,
-            detail=f"{BOT_PROFILE_FIELD} must be a text field, not an uploaded file",
-        )
-
-    if json_body is not None and BOT_PROFILE_FIELD in json_body:
-        raw_profile_name = json_body.pop(BOT_PROFILE_FIELD)
-    elif BOT_PROFILE_FIELD in form_fields:
-        raw_profile_name = form_fields.pop(BOT_PROFILE_FIELD)
-    else:
+    raw_profile_name = request.headers.get(BOT_PROFILE_HEADER)
+    if raw_profile_name is None:
         return None
-
-    return None if raw_profile_name is None else str(raw_profile_name)
+    return str(raw_profile_name).strip()
 
 
 async def _parse_request_body(request: Request) -> ParsedRequest:
@@ -104,7 +87,7 @@ async def _parse_request_body(request: Request) -> ParsedRequest:
     Args:
         request: 進來的 FastAPI Request, example: POST /sendMessage
     Return:
-        ParsedRequest  已移除 my_name 的 payload，以及該次要使用的 bot_token
+        ParsedRequest  不含 my_name 的 payload，以及該次要使用的 bot_token
         body 無法解析 -> HTTPException 400
     """
     content_type = request.headers.get("content-type", "")
@@ -157,7 +140,7 @@ async def _parse_request_body(request: Request) -> ParsedRequest:
     except Exception as exc:
         raise HTTPException(status_code=400, detail=f"Failed to parse request body: {exc}")
 
-    profile_name = _pop_bot_profile_name(json_body, form_fields, file_fields)
+    profile_name = _get_bot_profile_name_from_header(request)
     assert_bot_profile_name_is_supplied(profile_name)
     bot_token = get_bot_token_by_profile_name(profile_name)
 
@@ -229,7 +212,7 @@ async def get_result_from_master(
     - poll_token (str, required): the token returned by askMasterForPermission.
 
     Calls Telegram stopPoll; once stopped the poll cannot be stopped again.
-    The poll is always read back with the bot that created it, so my_name is
+    The poll is always read back with the bot that created it, so X-MY-NAME is
     optional here; if given it must match the bot that asked.
     """
     parsed = await _parse_request_body(request)
