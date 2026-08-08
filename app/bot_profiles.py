@@ -12,8 +12,6 @@ from app.settings import BOT_TOKENS, BOT_TOKEN_PROFILES, IS_BOT_PROFILE_REQUIRED
 
 # 呼叫端用來指定身份的 header 名稱；proxy 用它選 bot token，不會轉發給 Telegram。
 BOT_PROFILE_HEADER = "X-MY-NAME"
-# 舊稱：my_name 過去是 body 欄位（JSON / form-data），現已遷移到 header，此名僅保留給錯誤訊息使用。
-BOT_PROFILE_FIELD = "my_name"
 
 _DEFAULT_BOT_TOKEN_INDEX = 0
 

@@ -87,7 +87,7 @@ async def _parse_request_body(request: Request) -> ParsedRequest:
     Args:
         request: 進來的 FastAPI Request, example: POST /sendMessage
     Return:
-        ParsedRequest  不含 my_name 的 payload，以及該次要使用的 bot_token
+        ParsedRequest  不含該次要使用的 bot_token
         body 無法解析 -> HTTPException 400
     """
     content_type = request.headers.get("content-type", "")
