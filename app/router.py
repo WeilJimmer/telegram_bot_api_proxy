@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any, NamedTuple, Optional
 
 import json
 
@@ -7,7 +7,12 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 from fastapi.security import APIKeyHeader
 
-from app.settings import API_KEY, BOT_TOKEN, TELEGRAM_API_BASE
+from app.settings import API_KEY, TELEGRAM_API_BASE
+from app.bot_profiles import (
+    BOT_PROFILE_FIELD,
+    assert_bot_profile_name_is_supplied,
+    get_bot_token_by_profile_name,
+)
 from app.validator import is_chat_id_allowed, is_method_allowed, is_global_method_allowed
 from app.custom_methods import (
     handle_ask_master_for_permission,
@@ -18,6 +23,16 @@ from app.custom_methods import (
 router = APIRouter()
 
 _api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+
+
+class ParsedRequest(NamedTuple):
+    json_body: Optional[dict[str, Any]]
+    form_fields: dict
+    file_fields: dict
+    raw_body: Optional[bytes]
+    chat_id: Optional[str]
+    bot_profile_name: Optional[str]
+    bot_token: str
 
 
 def _is_json_content_type(content_type: str) -> bool:
@@ -53,10 +68,45 @@ async def verify_api_key(key: Optional[str] = Depends(_api_key_header)) -> Optio
     return key
 
 
-async def _parse_request_body(
-    request: Request,
-) -> tuple[Optional[dict[str, Any]], dict, dict, Optional[bytes], Optional[str]]:
-    """Parse request body into (json_body, form_fields, file_fields, raw_body, chat_id)."""
+def _pop_bot_profile_name(
+    json_body: Optional[dict[str, Any]],
+    form_fields: dict,
+    file_fields: dict,
+) -> Optional[str]:
+    """
+    Args:
+        json_body: 解析後的 JSON body, example: {"chat_id": "1", "my_name": "ariel"}；非 JSON 請求為 None
+        form_fields: 表單的非檔案欄位, example: {"my_name": "ariel"}
+        file_fields: 表單的檔案欄位, example: {"photo": ("a.jpg", b"...", "image/jpeg")}
+    Return:
+        Optional[str]  取出並移除的 profile name；呼叫端沒帶時為 None
+        my_name 被當成檔案上傳 -> HTTPException 400
+    """
+    if BOT_PROFILE_FIELD in file_fields:
+        file_fields.pop(BOT_PROFILE_FIELD)
+        raise HTTPException(
+            status_code=400,
+            detail=f"{BOT_PROFILE_FIELD} must be a text field, not an uploaded file",
+        )
+
+    if json_body is not None and BOT_PROFILE_FIELD in json_body:
+        raw_profile_name = json_body.pop(BOT_PROFILE_FIELD)
+    elif BOT_PROFILE_FIELD in form_fields:
+        raw_profile_name = form_fields.pop(BOT_PROFILE_FIELD)
+    else:
+        return None
+
+    return None if raw_profile_name is None else str(raw_profile_name)
+
+
+async def _parse_request_body(request: Request) -> ParsedRequest:
+    """
+    Args:
+        request: 進來的 FastAPI Request, example: POST /sendMessage
+    Return:
+        ParsedRequest  已移除 my_name 的 payload，以及該次要使用的 bot_token
+        body 無法解析 -> HTTPException 400
+    """
     content_type = request.headers.get("content-type", "")
     is_json_request = _is_json_content_type(content_type)
 
@@ -107,7 +157,13 @@ async def _parse_request_body(
     except Exception as exc:
         raise HTTPException(status_code=400, detail=f"Failed to parse request body: {exc}")
 
-    return json_body, form_fields, file_fields, raw_body, chat_id
+    profile_name = _pop_bot_profile_name(json_body, form_fields, file_fields)
+    assert_bot_profile_name_is_supplied(profile_name)
+    bot_token = get_bot_token_by_profile_name(profile_name)
+
+    return ParsedRequest(
+        json_body, form_fields, file_fields, raw_body, chat_id, profile_name, bot_token
+    )
 
 
 @router.post("/askMasterForPermission", summary="Send a poll to master and return a poll token (non-official)")
@@ -127,7 +183,8 @@ async def ask_master_for_permission(
     Returns poll_token to be used later with getResultFromMaster.
     """
     content_type = request.headers.get("content-type", "")
-    json_body, form_fields, file_fields, _, _ = await _parse_request_body(request)
+    parsed = await _parse_request_body(request)
+    json_body, form_fields, file_fields = parsed.json_body, parsed.form_fields, parsed.file_fields
 
     # Extract question and options; leave only media fields in the body dicts.
     if json_body is not None:
@@ -149,7 +206,14 @@ async def ask_master_for_permission(
         raise HTTPException(status_code=400, detail="options must be a JSON array of strings")
 
     result = await handle_ask_master_for_permission(
-        question, options, json_body, form_fields, file_fields, content_type
+        parsed.bot_profile_name,
+        parsed.bot_token,
+        question,
+        options,
+        json_body,
+        form_fields,
+        file_fields,
+        content_type,
     )
     return JSONResponse(content=result)
 
@@ -165,15 +229,17 @@ async def get_result_from_master(
     - poll_token (str, required): the token returned by askMasterForPermission.
 
     Calls Telegram stopPoll; once stopped the poll cannot be stopped again.
+    The poll is always read back with the bot that created it, so my_name is
+    optional here; if given it must match the bot that asked.
     """
-    json_body, form_fields, _, _, _ = await _parse_request_body(request)
+    parsed = await _parse_request_body(request)
 
-    if json_body is not None:
-        poll_token = str(json_body.get("poll_token", ""))
+    if parsed.json_body is not None:
+        poll_token = str(parsed.json_body.get("poll_token", ""))
     else:
-        poll_token = str(form_fields.get("poll_token", ""))
+        poll_token = str(parsed.form_fields.get("poll_token", ""))
 
-    result, status_code = await handle_get_result_from_master(poll_token)
+    result, status_code = await handle_get_result_from_master(parsed.bot_profile_name, poll_token)
     return JSONResponse(content=result, status_code=status_code)
 
 
@@ -189,10 +255,15 @@ async def report_to_master(
     The chat_id in the payload is ignored; MASTER_CHAT_ID from server config is always used.
     """
     content_type = request.headers.get("content-type", "")
-    json_body, form_fields, file_fields, raw_body, _ = await _parse_request_body(request)
+    parsed = await _parse_request_body(request)
 
     result, status_code = await handle_report_to_master(
-        json_body, form_fields, file_fields, raw_body, content_type
+        parsed.bot_token,
+        parsed.json_body,
+        parsed.form_fields,
+        parsed.file_fields,
+        parsed.raw_body,
+        content_type,
     )
     return JSONResponse(content=result, status_code=status_code)
 
@@ -204,7 +275,9 @@ async def proxy_telegram(
     _: Optional[str] = Depends(verify_api_key),
 ):
     content_type = request.headers.get("content-type", "")
-    json_body, form_fields, file_fields, raw_body, chat_id = await _parse_request_body(request)
+    parsed = await _parse_request_body(request)
+    json_body, form_fields, file_fields = parsed.json_body, parsed.form_fields, parsed.file_fields
+    raw_body, chat_id = parsed.raw_body, parsed.chat_id
 
     method = _normalize_method_and_fields(method, json_body, form_fields, file_fields)
 
@@ -228,7 +301,7 @@ async def proxy_telegram(
             )
 
     # ── Step 3：轉發至 Telegram API ─────────────────────────
-    target_url = f"{TELEGRAM_API_BASE}/bot{BOT_TOKEN}/{method}"
+    target_url = f"{TELEGRAM_API_BASE}/bot{parsed.bot_token}/{method}"
 
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:

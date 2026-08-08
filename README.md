@@ -45,7 +45,10 @@ cp .env.sample .env
 
 | KEY | Description |
 |------|------|
-| BOT_TOKEN | Telegram Bot token |
+| BOT_TOKEN | Telegram Bot token (used when BOT_TOKENS is empty) |
+| BOT_TOKENS | JSON array of bot tokens; index 0 is the default identity |
+| BOT_TOKEN_PROFILES | JSON object mapping a profile name to a BOT_TOKENS index |
+| IS_BOT_PROFILE_REQUIRED | true = every request must carry my_name; default false |
 | API_KEY | Proxy API key; set empty string to disable |
 | SERVER_HOST | Bind address, default 0.0.0.0 |
 | SERVER_PORT | Port, default 15820 |
@@ -154,6 +157,65 @@ curl -X POST http://localhost:15820/sendPhoto \
 curl -X POST http://localhost:15820/getMe \
   -H "X-API-Key: your_proxy_api_key"
 ```
+
+---
+
+### Multiple Bot Identities (Profiles)
+
+The proxy can hold several bot tokens and pick one per request. Callers never see a token — they send a profile name in the `my_name` field, and the proxy maps it to a token.
+
+#### Configuration
+
+`BOT_TOKENS` is a JSON array of tokens. **Index 0 is the default identity.** `BOT_TOKEN_PROFILES` maps each profile name to an index in that array.
+
+```dotenv
+# Three bots: index 0 is the default one
+BOT_TOKENS=["111111:AAA-default-bot-token","222222:BBB-ariel-bot-token","333333:CCC-bella-bot-token"]
+
+# my_name -> which token to send with
+BOT_TOKEN_PROFILES={"ariel":1,"bella":2}
+
+# Optional: several names may share one identity
+# BOT_TOKEN_PROFILES={"ariel":1,"ariel_backup":1,"bella":2}
+
+# false (default): my_name is optional; requests without it use BOT_TOKENS[0]
+# true: every request must carry my_name
+IS_BOT_PROFILE_REQUIRED=false
+```
+
+If `BOT_TOKENS` is left empty, the single `BOT_TOKEN` above is used as index 0, so existing setups keep working unchanged.
+
+#### Sending as a specific bot
+
+`my_name` works on every endpoint, in JSON and in form-data. The proxy strips it before forwarding, so Telegram never sees it.
+
+```bash
+# Sent by BOT_TOKENS[1] (ariel)
+curl -X POST http://localhost:15820/sendMessage \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your_proxy_api_key" \
+  -d '{"my_name": "ariel", "chat_id": "123456789", "text": "Hello!"}'
+
+# Same thing with a file upload
+curl -X POST http://localhost:15820/sendPhoto \
+  -H "X-API-Key: your_proxy_api_key" \
+  -F "my_name=ariel" \
+  -F "chat_id=123456789" \
+  -F "photo=@/path/to/image.jpg"
+
+# No my_name -> sent by BOT_TOKENS[0] (only allowed when IS_BOT_PROFILE_REQUIRED is false)
+curl -X POST http://localhost:15820/sendMessage \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your_proxy_api_key" \
+  -d '{"chat_id": "123456789", "text": "Hello!"}'
+```
+
+Rules:
+
+- An unknown `my_name` is rejected with **403** — it never silently falls back to the default identity.
+- A missing `my_name` while `IS_BOT_PROFILE_REQUIRED=true` is rejected with **400**.
+- Bad configuration (empty `BOT_TOKENS`, an index outside the array, `IS_BOT_PROFILE_REQUIRED=true` with no profiles) fails at startup, not at request time.
+- `getResultFromMaster` always reads the poll back with the bot that created it, so `my_name` is optional there; if you do send one, it must match the asking bot or the call is rejected with 403.
 
 ---
 
@@ -303,7 +365,10 @@ cp .env.sample .env
 
 | 欄位 | 說明 |
 |------|------|
-| BOT_TOKEN | Telegram Bot Token |
+| BOT_TOKEN | Telegram Bot Token（BOT_TOKENS 留空時使用） |
+| BOT_TOKENS | Bot Token 的 JSON 陣列，索引 0 為預設身份 |
+| BOT_TOKEN_PROFILES | JSON 物件，把 profile 名稱對應到 BOT_TOKENS 的索引 |
+| IS_BOT_PROFILE_REQUIRED | true = 每個請求都必須帶 my_name，預設 false |
 | API_KEY | 保護此代理的存取金鑰，空字串可關閉 |
 | SERVER_HOST | 伺服器綁定位址，預設 0.0.0.0 |
 | SERVER_PORT | 伺服器埠號，預設 15820 |
@@ -412,6 +477,65 @@ curl -X POST http://localhost:15820/sendPhoto \
 curl -X POST http://localhost:15820/getMe \
   -H "X-API-Key: your_proxy_api_key"
 ```
+
+---
+
+### 多重 Bot 身份（Profile）
+
+代理可以同時保管多組 bot token，每次請求選一組發送。呼叫端看不到 token，只在 `my_name` 欄位帶 profile 名稱，由代理換成對應的 token。
+
+#### 設定方式
+
+`BOT_TOKENS` 是 token 的 JSON 陣列，**索引 0 為預設身份**；`BOT_TOKEN_PROFILES` 把每個 profile 名稱對應到陣列中的索引。
+
+```dotenv
+# 三個 bot，索引 0 是預設身份
+BOT_TOKENS=["111111:AAA-default-bot-token","222222:BBB-ariel-bot-token","333333:CCC-bella-bot-token"]
+
+# my_name -> 要用哪一組 token
+BOT_TOKEN_PROFILES={"ariel":1,"bella":2}
+
+# 也可以讓多個名字共用同一個身份
+# BOT_TOKEN_PROFILES={"ariel":1,"ariel_backup":1,"bella":2}
+
+# false（預設）：my_name 選填，沒帶就用 BOT_TOKENS[0]
+# true：每個請求都必須帶 my_name
+IS_BOT_PROFILE_REQUIRED=false
+```
+
+`BOT_TOKENS` 留空時，會直接把上面的單一 `BOT_TOKEN` 當成索引 0，舊設定不必改也能照常運作。
+
+#### 指定身份發送
+
+`my_name` 在所有端點都能用，JSON 與 form-data 皆可。代理會在轉發前把它移除，Telegram 不會看到這個欄位。
+
+```bash
+# 由 BOT_TOKENS[1]（ariel）送出
+curl -X POST http://localhost:15820/sendMessage \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your_proxy_api_key" \
+  -d '{"my_name": "ariel", "chat_id": "123456789", "text": "Hello!"}'
+
+# 上傳檔案時一樣可以帶
+curl -X POST http://localhost:15820/sendPhoto \
+  -H "X-API-Key: your_proxy_api_key" \
+  -F "my_name=ariel" \
+  -F "chat_id=123456789" \
+  -F "photo=@/path/to/image.jpg"
+
+# 不帶 my_name -> 由 BOT_TOKENS[0] 送出（僅在 IS_BOT_PROFILE_REQUIRED 為 false 時允許）
+curl -X POST http://localhost:15820/sendMessage \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your_proxy_api_key" \
+  -d '{"chat_id": "123456789", "text": "Hello!"}'
+```
+
+規則：
+
+- 未知的 `my_name` 一律回 **403**，不會安靜地退回預設身份。
+- `IS_BOT_PROFILE_REQUIRED=true` 卻沒帶 `my_name` 時回 **400**。
+- 設定錯誤（`BOT_TOKENS` 為空、索引超出範圍、開了 `IS_BOT_PROFILE_REQUIRED` 卻沒有任何 profile）會在啟動時就報錯，而不是等到請求進來才失敗。
+- `getResultFromMaster` 一律用當初發問的那個 bot 讀回投票，所以那裡的 `my_name` 選填；若有帶，必須與發問的身份一致，否則回 403。
 
 ---
 

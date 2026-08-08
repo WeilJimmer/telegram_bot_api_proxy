@@ -3,7 +3,8 @@ from typing import Any, Optional
 import httpx
 from fastapi import HTTPException
 
-from app.settings import BOT_TOKEN, MASTER_CHAT_ID, TELEGRAM_API_BASE
+from app.settings import MASTER_CHAT_ID, TELEGRAM_API_BASE
+from app.bot_profiles import get_bot_token_by_profile_name
 from app.poll_store import delete_poll, generate_poll_token, load_poll, save_poll
 
 # Ordered by priority: more specific (typed media) before generic document.
@@ -80,6 +81,7 @@ def _prepare_master_payload(
 
 
 async def _send_to_telegram(
+    bot_token: str,
     tg_method: str,
     json_body: Optional[dict],
     form_fields: dict,
@@ -87,7 +89,7 @@ async def _send_to_telegram(
     raw_body: Optional[bytes] = None,
     content_type: str = "",
 ) -> tuple[dict[str, Any], int]:
-    target_url = f"{TELEGRAM_API_BASE}/bot{BOT_TOKEN}/{tg_method}"
+    target_url = f"{TELEGRAM_API_BASE}/bot{bot_token}/{tg_method}"
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             if json_body is not None:
@@ -114,6 +116,7 @@ async def _send_to_telegram(
 # ── reportToMaster ─────────────────────────────────────────────────────────────
 
 async def handle_report_to_master(
+    bot_token: str,
     json_body: Optional[dict[str, Any]],
     form_fields: dict,
     file_fields: dict,
@@ -127,13 +130,15 @@ async def handle_report_to_master(
     _prepare_master_payload(tg_method, json_body, form_fields, file_fields)
 
     return await _send_to_telegram(
-        tg_method, json_body, form_fields, file_fields, raw_body, content_type
+        bot_token, tg_method, json_body, form_fields, file_fields, raw_body, content_type
     )
 
 
 # ── askMasterForPermission ──────────────────────────────────────────────────────
 
 async def handle_ask_master_for_permission(
+    bot_profile_name: Optional[str],
+    bot_token: str,
     question: str,
     options: list[str],
     media_json_body: Optional[dict[str, Any]],
@@ -164,7 +169,7 @@ async def handle_ask_master_for_permission(
         media_tg_method = _detect_tg_method(media_json_body, media_form_fields, media_file_fields)
         _prepare_master_payload(media_tg_method, media_json_body, media_form_fields, media_file_fields)
         await _send_to_telegram(
-            media_tg_method, media_json_body, media_form_fields, media_file_fields, None, content_type
+            bot_token, media_tg_method, media_json_body, media_form_fields, media_file_fields, None, content_type
         )
 
     # Step 2: Send the poll to master.
@@ -178,7 +183,7 @@ async def handle_ask_master_for_permission(
         "allow_adding_options": True,
     }
 
-    poll_resp, _ = await _send_to_telegram("sendPoll", poll_payload, {}, {})
+    poll_resp, _ = await _send_to_telegram(bot_token, "sendPoll", poll_payload, {}, {})
 
     if not poll_resp.get("ok"):
         raise HTTPException(
@@ -189,10 +194,12 @@ async def handle_ask_master_for_permission(
     telegram_poll_message_id: int = poll_resp["result"]["message_id"]
     poll_token = generate_poll_token()
 
+    # 存 profile 名字而不是 token：token 是機密，沒有必要落到磁碟或 Redis。
     save_poll(poll_token, {
         "poll_token": poll_token,
         "telegram_poll_message_id": telegram_poll_message_id,
         "master_chat_id": str(MASTER_CHAT_ID),
+        "bot_profile_name": bot_profile_name,
         "question": question.strip(),
         "options": [opt.strip() for opt in options],
     })
@@ -200,6 +207,7 @@ async def handle_ask_master_for_permission(
     return {
         "ok": True,
         "poll_token": poll_token,
+        "bot_profile_name": bot_profile_name,
         "telegram_poll_message_id": telegram_poll_message_id,
     }
 
@@ -224,7 +232,18 @@ def _summarize_poll_result(stop_poll_resp: dict) -> tuple[bool, list[str], str]:
 
 
 
-async def handle_get_result_from_master(poll_token: str) -> tuple[Any, int]:
+async def handle_get_result_from_master(
+    requested_bot_profile_name: Optional[str],
+    poll_token: str,
+) -> tuple[Any, int]:
+    """
+    Args:
+        requested_bot_profile_name: 這次請求帶的 my_name, example: "ariel"；沒帶時為 None
+        poll_token: askMasterForPermission 回傳的 token, example: "9f1c…"
+    Return:
+        tuple[dict, int]  回應內容與 HTTP 狀態碼；stopPoll 失敗時 ok=False 且狀態碼 502
+        投票必須用當初發問的那個 bot 讀回來，所以 token 取自投票紀錄而不是這次的請求。
+    """
     if not poll_token or not poll_token.strip():
         raise HTTPException(status_code=400, detail="poll_token is required")
 
@@ -233,7 +252,21 @@ async def handle_get_result_from_master(poll_token: str) -> tuple[Any, int]:
     if poll_data is None:
         raise HTTPException(status_code=404, detail=f"poll_token '{poll_token}' not found")
 
+    # 舊的投票紀錄沒有這個欄位；缺少就代表「當時只有一組 token」，即預設身份。
+    raw_owner_name = poll_data.get("bot_profile_name")
+    owner_bot_profile_name = None if raw_owner_name is None else str(raw_owner_name)
+
+    if requested_bot_profile_name is not None and requested_bot_profile_name != owner_bot_profile_name:
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                f"poll_token '{poll_token}' belongs to bot profile "
+                f"'{owner_bot_profile_name}', not '{requested_bot_profile_name}'"
+            ),
+        )
+
     stop_poll_resp, _ = await _send_to_telegram(
+        get_bot_token_by_profile_name(owner_bot_profile_name),
         "stopPoll",
         {
             "chat_id": poll_data["master_chat_id"],
@@ -248,6 +281,7 @@ async def handle_get_result_from_master(poll_token: str) -> tuple[Any, int]:
         return {
             "ok": False,
             "poll_token": poll_token,
+            "bot_profile_name": owner_bot_profile_name,
             "question": poll_data["question"],
             "options": poll_data["options"],
             "answered": False,
@@ -264,6 +298,7 @@ async def handle_get_result_from_master(poll_token: str) -> tuple[Any, int]:
     return {
         "ok": True,
         "poll_token": poll_token,
+        "bot_profile_name": owner_bot_profile_name,
         "question": poll_data["question"],
         "options": poll_data["options"],
         "answered": answered,
