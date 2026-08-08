@@ -238,7 +238,7 @@ async def handle_get_result_from_master(
 ) -> tuple[Any, int]:
     """
     Args:
-        requested_bot_profile_name: 這次請求帶的 my_name, example: "ariel"；沒帶時為 None
+        requested_bot_profile_name: 這次請求帶的 profile name（來自 X-MY-NAME header）, example: "ariel"；沒帶時為 None
         poll_token: askMasterForPermission 回傳的 token, example: "9f1c…"
     Return:
         tuple[dict, int]  回應內容與 HTTP 狀態碼；stopPoll 失敗時 ok=False 且狀態碼 502
