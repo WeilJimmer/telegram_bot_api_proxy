@@ -65,7 +65,7 @@ curl -X POST http://192.168.100.100:15820/sendMessage \
 
 curl -X POST http://192.168.100.100:15820/sendPhoto \
 	-H "X-API-Key: proxy_api_key" \
-  -H "X-MY-NAME: ariel" \
+	-H "X-MY-NAME: ariel" \
 	-F "chat_id=123456789" \
 	-F "photo=@/path/to/photo.jpg"
 ```
@@ -87,7 +87,7 @@ Replace chat_id with your real value.
 ```bash
 curl -X POST http://192.168.100.100:15820/getMe \
 	-H "X-API-Key: proxy_api_key"
-  -H "X-MY-NAME: ariel"
+	-H "X-MY-NAME: ariel"
 ```
 
 ### sendMessage
@@ -96,7 +96,7 @@ curl -X POST http://192.168.100.100:15820/getMe \
 curl -X POST http://192.168.100.100:15820/sendMessage \
 	-H "Content-Type: application/json" \
 	-H "X-API-Key: proxy_api_key" \
-  -H "X-MY-NAME: ariel" \
+	-H "X-MY-NAME: ariel" \
 	-d '{"chat_id":"123456789","text":"This is a test message"}'
 ```
 
@@ -106,7 +106,7 @@ curl -X POST http://192.168.100.100:15820/sendMessage \
 curl -X POST http://192.168.100.100:15820/sendMessage \
 	-H "Content-Type: application/json" \
 	-H "X-API-Key: proxy_api_key" \
-  -H "X-MY-NAME: ariel" \
+	-H "X-MY-NAME: ariel" \
 	-d '{"chat_id":"123456789","text":"*Bold*\n_Italic_\n`code`","parse_mode":"Markdown"}'
 ```
 
@@ -116,7 +116,7 @@ curl -X POST http://192.168.100.100:15820/sendMessage \
 curl -X POST http://192.168.100.100:15820/sendMessage \
 	-H "Content-Type: application/json" \
 	-H "X-API-Key: proxy_api_key" \
-  -H "X-MY-NAME: ariel" \
+	-H "X-MY-NAME: ariel" \
 	-d '{"chat_id":"123456789","text":"<b>Bold</b>\n<i>Italic</i>\n<code>code</code>","parse_mode":"HTML"}'
 ```
 
@@ -125,7 +125,7 @@ curl -X POST http://192.168.100.100:15820/sendMessage \
 ```bash
 curl -X POST http://192.168.100.100:15820/sendPhoto \
 	-H "X-API-Key: proxy_api_key" \
-  -H "X-MY-NAME: ariel" \
+	-H "X-MY-NAME: ariel" \
 	-F "chat_id=123456789" \
 	-F "photo=@/path/to/photo.jpg" \
 	-F "caption=This is a photo"
@@ -136,7 +136,7 @@ curl -X POST http://192.168.100.100:15820/sendPhoto \
 ```bash
 curl -X POST http://192.168.100.100:15820/sendPhoto \
 	-H "X-API-Key: proxy_api_key" \
-  -H "X-MY-NAME: ariel" \
+	-H "X-MY-NAME: ariel" \
 	-F "chat_id=123456789" \
 	-F "photo=@/path/to/photo.jpg" \
 	-F "caption=<b>Important</b> photo" \
@@ -148,7 +148,7 @@ curl -X POST http://192.168.100.100:15820/sendPhoto \
 ```bash
 curl -X POST http://192.168.100.100:15820/sendVideo \
 	-H "X-API-Key: proxy_api_key" \
-  -H "X-MY-NAME: ariel" \
+	-H "X-MY-NAME: ariel" \
 	-F "chat_id=123456789" \
 	-F "video=@/path/to/clip.mp4" \
 	-F "caption=This is a video"
@@ -159,7 +159,7 @@ curl -X POST http://192.168.100.100:15820/sendVideo \
 ```bash
 curl -X POST http://192.168.100.100:15820/sendDocument \
 	-H "X-API-Key: proxy_api_key" \
-  -H "X-MY-NAME: ariel" \
+	-H "X-MY-NAME: ariel" \
 	-F "chat_id=123456789" \
 	-F "document=@/path/to/archive.zip" \
 	-F "caption=Archive file"
@@ -170,7 +170,7 @@ curl -X POST http://192.168.100.100:15820/sendDocument \
 ```bash
 curl -X POST http://192.168.100.100:15820/sendAudio \
 	-H "X-API-Key: proxy_api_key" \
-  -H "X-MY-NAME: ariel" \
+	-H "X-MY-NAME: ariel" \
 	-F "chat_id=123456789" \
 	-F "audio=@/path/to/music.mp3" \
 	-F "caption=Audio message"
@@ -181,7 +181,7 @@ curl -X POST http://192.168.100.100:15820/sendAudio \
 ```bash
 curl -X POST http://192.168.100.100:15820/sendVoice \
 	-H "X-API-Key: proxy_api_key" \
-  -H "X-MY-NAME: ariel" \
+	-H "X-MY-NAME: ariel" \
 	-F "chat_id=123456789" \
 	-F "voice=@/path/to/voice.ogg" \
 	-F "caption=Voice message"
@@ -193,7 +193,7 @@ curl -X POST http://192.168.100.100:15820/sendVoice \
 curl -X POST http://192.168.100.100:15820/sendLocation \
 	-H "Content-Type: application/json" \
 	-H "X-API-Key: proxy_api_key" \
-  -H "X-MY-NAME: ariel" \
+	-H "X-MY-NAME: ariel" \
 	-d '{"chat_id":"123456789","latitude":25.0330,"longitude":121.5654}'
 ```
 
@@ -207,7 +207,7 @@ Compatibility alias. The proxy rewrites:
 ```bash
 curl -X POST http://192.168.100.100:15820/sendFile \
 	-H "X-API-Key: proxy_api_key" \
-  -H "X-MY-NAME: ariel" \
+	-H "X-MY-NAME: ariel" \
 	-F "chat_id=123456789" \
 	-F "file=@/path/to/archive.zip" \
 	-F "caption=Archive file"
@@ -228,13 +228,13 @@ Send an alert to the master. No reply is expected. Works with text or any file (
 curl -X POST http://192.168.100.100:15820/reportToMaster \
 	-H "Content-Type: application/json" \
 	-H "X-API-Key: proxy_api_key" \
-  -H "X-MY-NAME: ariel" \
+	-H "X-MY-NAME: ariel" \
 	-d '{"text":"Task finished"}'
 
 # Photo
 curl -X POST http://192.168.100.100:15820/reportToMaster \
 	-H "X-API-Key: proxy_api_key" \
-  -H "X-MY-NAME: ariel" \
+	-H "X-MY-NAME: ariel" \
 	-F "photo=@/path/to/photo.jpg" \
 	-F "caption=Result"
 ```
@@ -247,7 +247,7 @@ Ask the master a question as a poll. You get back a poll_token. options is a JSO
 curl -X POST http://192.168.100.100:15820/askMasterForPermission \
 	-H "Content-Type: application/json" \
 	-H "X-API-Key: proxy_api_key" \
-  -H "X-MY-NAME: ariel" \
+	-H "X-MY-NAME: ariel" \
 	-d '{"question":"Allow this action?","options":["Yes","No"]}'
 ```
 
@@ -269,7 +269,7 @@ IMPORTANT: this CLOSES the poll. The master can no longer vote after you call it
 curl -X POST http://192.168.100.100:15820/getResultFromMaster \
 	-H "Content-Type: application/json" \
 	-H "X-API-Key: proxy_api_key" \
-  -H "X-MY-NAME: ariel" \
+	-H "X-MY-NAME: ariel" \
 	-d '{"poll_token":"abc-123"}'
 ```
 
